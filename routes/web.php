@@ -2,9 +2,15 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\BookController;
 
+// トップページ
 Route::get('/', function () {
+    // ログイン済み → books にリダイレクト
+    if (Auth::check()) {
+        return redirect()->route('books.index');
+    }
     return view('welcome');
 });
 

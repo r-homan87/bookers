@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -24,17 +26,43 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(Request $request)
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'icon' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'introduction' => 'nullable|string|max:1000',
+        ]);
+
+        if ($request->hasFile('icon')) {
+            $file = $request->file('icon');
+
+            Log::info('ファイルがアップロードされました:');
+            Log::info('ファイル名: ' . $file->getClientOriginalName());
+            Log::info('ファイルサイズ: ' . $file->getSize());
+            Log::info('一時ファイルパス: ' . $file->getPathname());
+
+            // 既存アイコンがあれば削除（任意）
+            if ($user->icon) {
+                $oldPath = str_replace('storage/', 'public/', $user->icon);
+                Storage::delete($oldPath);
+            }
+
+            $path = $file->store('public/icons');
+            Log::info('アップロード画像の保存パス: ' . $path);
+
+            $user->icon = str_replace('public/', 'storage/', $path);
         }
 
-        $request->user()->save();
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->introduction = $request->introduction;
+        $user->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        return redirect()->route('profile.edit')->with('status', 'profile-updated');
     }
 
     /**
